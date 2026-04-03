@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { redirect } from "next/navigation";
 import { TrendingUp, Sparkles, Clock, Users, LogIn } from "lucide-react";
 import Link from "next/link";
 import InfinitePostList from "@/components/feed/InfinitePostList";
@@ -33,7 +34,6 @@ export default async function FeedPage({
     });
 
     if (user && !user.onboardingCompleted) {
-      const { redirect } = await import("next/navigation");
       redirect("/onboarding");
     }
 
@@ -180,7 +180,7 @@ export default async function FeedPage({
       <div>
         {posts.length > 0 ? (
           <InfinitePostList
-            initialPosts={posts as PostWithAuthorAndTags[]}
+            initialPosts={JSON.parse(JSON.stringify(posts)) as PostWithAuthorAndTags[]}
             initialCursor={initialCursor}
             topic={topic}
             sort={sort}

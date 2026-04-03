@@ -65,7 +65,7 @@ export async function getPosts({
   });
 
   return {
-    items,
+    items: JSON.parse(JSON.stringify(items)) as PostWithAuthorAndTags[],
     nextCursor,
   };
 }
