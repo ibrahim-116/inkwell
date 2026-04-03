@@ -1,11 +1,10 @@
 import { DefaultSession } from "next-auth";
-import "next-auth/jwt";
 
 declare module "next-auth" {
   interface Session {
     user: {
       id: string;
-      username: string;
+      username: string | null;
       role: string;
       onboardingCompleted: boolean;
       emailVerified: Date | null;
@@ -13,19 +12,9 @@ declare module "next-auth" {
   }
 
   interface User {
-    username: string;
-    role: string;
-    onboardingCompleted: boolean;
-    emailVerified: Date | null;
-  }
-}
-
-declare module "next-auth/jwt" {
-  interface JWT {
-    id: string;
-    username: string;
-    role: string;
-    onboardingCompleted: boolean;
-    emailVerified: Date | null;
+    username?: string | null;
+    role?: string;
+    onboardingCompleted?: boolean;
+    emailVerified?: Date | null;
   }
 }

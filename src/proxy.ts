@@ -21,10 +21,11 @@ export default auth((req) => {
 
   const isPublicRoute =
     publicPaths.includes(nextUrl.pathname) ||
-    nextUrl.pathname.startsWith("/post/") ||        // individual post pages
-    nextUrl.pathname.startsWith("/profile/") ||     // author profiles
-    nextUrl.pathname.startsWith("/search") ||       // search page
-    nextUrl.pathname.startsWith("/api/uploadthing"); // upload API
+    nextUrl.pathname.startsWith("/post/") ||
+    nextUrl.pathname.startsWith("/profile/") ||
+    nextUrl.pathname.startsWith("/search") ||
+    nextUrl.pathname.startsWith("/api/auth") ||     // NextAuth API routes always public
+    nextUrl.pathname.startsWith("/api/uploadthing");
 
   const isOnboardingRoute = nextUrl.pathname === "/onboarding";
 
@@ -40,7 +41,7 @@ export default auth((req) => {
     }
 
     if (onboardingCompleted && isOnboardingRoute) {
-      return NextResponse.redirect(new URL("/", nextUrl));
+      return NextResponse.redirect(new URL("/feed", nextUrl));
     }
   }
 
@@ -48,5 +49,5 @@ export default auth((req) => {
 });
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|public).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|public).*)"],
 };
