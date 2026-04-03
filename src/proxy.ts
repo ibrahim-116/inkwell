@@ -8,7 +8,24 @@ export default auth((req) => {
   const { nextUrl } = req;
   const isLoggedIn = !!req.auth;
 
-  const isPublicRoute = ["/sign-in", "/sign-up", "/"].includes(nextUrl.pathname);
+  const publicPaths = [
+    "/sign-in",
+    "/sign-up",
+    "/",
+    "/feed",
+    "/about",
+    "/terms",
+    "/privacy",
+    "/topics",
+  ];
+
+  const isPublicRoute =
+    publicPaths.includes(nextUrl.pathname) ||
+    nextUrl.pathname.startsWith("/post/") ||        // individual post pages
+    nextUrl.pathname.startsWith("/profile/") ||     // author profiles
+    nextUrl.pathname.startsWith("/search") ||       // search page
+    nextUrl.pathname.startsWith("/api/uploadthing"); // upload API
+
   const isOnboardingRoute = nextUrl.pathname === "/onboarding";
 
   if (!isLoggedIn && !isPublicRoute) {
