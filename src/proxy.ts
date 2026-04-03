@@ -36,6 +36,11 @@ export default auth((req) => {
   if (isLoggedIn) {
     const onboardingCompleted = (req.auth?.user as any)?.onboardingCompleted;
 
+    // Logged-in users should never see the landing page
+    if (nextUrl.pathname === "/") {
+      return NextResponse.redirect(new URL("/feed", nextUrl));
+    }
+
     if (!onboardingCompleted && !isOnboardingRoute && !isPublicRoute) {
       return NextResponse.redirect(new URL("/onboarding", nextUrl));
     }
