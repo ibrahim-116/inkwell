@@ -30,9 +30,10 @@ interface PostCardProps {
   };
   isLiked?: boolean;
   isSaved?: boolean;
+  isAuthenticated?: boolean;
 }
 
-export default function PostCard({ post, isLiked = false, isSaved = false }: PostCardProps) {
+export default function PostCard({ post, isLiked = false, isSaved = false, isAuthenticated = false }: PostCardProps) {
   const primaryTag = post.tags[0]?.Topic;
 
   return (
@@ -122,6 +123,7 @@ export default function PostCard({ post, isLiked = false, isSaved = false }: Pos
             initialComments={post.commentCount}
             isLiked={isLiked}
             isSaved={isSaved}
+            isAuthenticated={isAuthenticated}
           />
         </div>
       </div>

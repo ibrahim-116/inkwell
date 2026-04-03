@@ -12,6 +12,7 @@ interface InfinitePostListProps {
   topic?: string;
   sort?: string;
   userTopics?: string[];
+  isAuthenticated?: boolean;
 }
 
 export default function InfinitePostList({
@@ -20,6 +21,7 @@ export default function InfinitePostList({
   topic,
   sort,
   userTopics,
+  isAuthenticated = false,
 }: InfinitePostListProps) {
   const [posts, setPosts] = useState<PostWithAuthorAndTags[]>(() => {
     // Deduplicate initial posts just in case
@@ -84,11 +86,12 @@ export default function InfinitePostList({
   return (
     <div className="space-y-6">
       {posts.map((post) => (
-        <PostCard 
-          key={post.id} 
+        <PostCard
+          key={post.id}
           post={post}
           isLiked={post.isLiked}
           isSaved={post.isSaved}
+          isAuthenticated={isAuthenticated}
         />
       ))}
 

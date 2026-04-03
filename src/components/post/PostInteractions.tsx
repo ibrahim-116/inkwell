@@ -1,6 +1,7 @@
 "use client";
 
 import { useOptimistic, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Heart, Bookmark, MessageSquare, Share2 } from "lucide-react";
 import { togglePostLike, toggleSavePost } from "@/actions/social.actions";
 import { cn } from "@/lib/utils";
@@ -13,6 +14,7 @@ interface PostInteractionsProps {
   initialComments: number;
   isLiked: boolean;
   isSaved: boolean;
+  isAuthenticated?: boolean;
   variant?: "compact" | "full";
 }
 
@@ -24,8 +26,10 @@ export default function PostInteractions({
   initialComments,
   isLiked: initialIsLiked,
   isSaved: initialIsSaved,
+  isAuthenticated = false,
   variant = "compact",
 }: PostInteractionsProps) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
   const [optimisticState, setOptimisticState] = useOptimistic(
@@ -49,6 +53,10 @@ export default function PostInteractions({
   );
 
   const handleLike = async () => {
+    if (!isAuthenticated) {
+      router.push("/sign-in");
+      return;
+    }
     startTransition(async () => {
       setOptimisticState({ type: "LIKE" });
       try {
@@ -60,6 +68,10 @@ export default function PostInteractions({
   };
 
   const handleSave = async () => {
+    if (!isAuthenticated) {
+      router.push("/sign-in");
+      return;
+    }
     startTransition(async () => {
       setOptimisticState({ type: "SAVE" });
       try {

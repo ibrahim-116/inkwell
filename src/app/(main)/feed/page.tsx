@@ -1,7 +1,6 @@
 import { auth } from "@/auth";
-import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { TrendingUp, Sparkles, Clock, Users } from "lucide-react";
+import { TrendingUp, Sparkles, Clock, Users, LogIn } from "lucide-react";
 import Link from "next/link";
 import InfinitePostList from "@/components/feed/InfinitePostList";
 import ContinueReading from "@/components/feed/ContinueReading";
@@ -13,52 +12,66 @@ export default async function FeedPage({
   searchParams: Promise<{ topic?: string; sort?: string }>;
 }) {
   const session = await auth();
-  if (!session?.user?.id) redirect("/sign-in");
+  const userId = session?.user?.id ?? null;
 
   const { topic, sort } = await searchParams;
-  const userId = session.user.id;
 
-  // Check onboarding
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { onboardingCompleted: true, topicAffinities: { include: { Topic: true } } },
-  });
+  // Auth-required: "following" sort — redirect unauthenticated users
+  if (sort === "following" && !userId) {
+    // show a guest-friendly message instead of hard redirect
+  }
 
-  if (!user?.onboardingCompleted) redirect("/onboarding");
+  // Fetch user data only if authenticated
+  let userTopics: string[] = [];
+  let continueReadingPosts: { id: string; title: string; slug: string; coverImageUrl: string | null; scrollDepth: number; author: { name: string | null } }[] = [];
+  let userTopicAffinities: { topicId: string; Topic: { id: string; label: string; slug: string } }[] = [];
 
-  const userTopics = user.topicAffinities.map((a: { topicId: string }) => a.topicId);
+  if (userId) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { onboardingCompleted: true, topicAffinities: { include: { Topic: true } } },
+    });
 
-  // 1. Fetch partially read posts for "Continue Reading"
-  const ongoingEngagements = await prisma.postEngagement.findMany({
-    where: {
-      userId,
-      scrollDepth: { gt: 0.05, lt: 0.95 },
-    },
-    include: {
-      Post: {
-        include: {
-          author: { select: { name: true } },
+    if (user && !user.onboardingCompleted) {
+      const { redirect } = await import("next/navigation");
+      redirect("/onboarding");
+    }
+
+    userTopics = user?.topicAffinities.map((a: { topicId: string }) => a.topicId) ?? [];
+    userTopicAffinities = user?.topicAffinities ?? [];
+
+    // "Continue Reading" shelf
+    const ongoingEngagements = await prisma.postEngagement.findMany({
+      where: {
+        userId,
+        scrollDepth: { gt: 0.05, lt: 0.95 },
+      },
+      include: {
+        Post: {
+          include: {
+            author: { select: { name: true } },
+          },
         },
       },
-    },
-    orderBy: { updatedAt: "desc" },
-    take: 3,
-  });
+      orderBy: { updatedAt: "desc" },
+      take: 3,
+    });
 
-  const continueReadingPosts = ongoingEngagements.map((e) => ({
-    id: e.Post.id,
-    title: e.Post.title,
-    slug: e.Post.slug,
-    coverImageUrl: e.Post.coverImageUrl,
-    scrollDepth: e.scrollDepth,
-    author: e.Post.author,
-  }));
+    continueReadingPosts = ongoingEngagements.map((e) => ({
+      id: e.Post.id,
+      title: e.Post.title,
+      slug: e.Post.slug,
+      coverImageUrl: e.Post.coverImageUrl,
+      scrollDepth: e.scrollDepth,
+      author: e.Post.author,
+    }));
+  }
 
-  // 2. Fetch initial posts based on sort
+  // Fetch posts (public)
   const posts = await prisma.post.findMany({
     where: {
       status: "PUBLISHED",
-      ...(sort === "following" 
+      ...(sort === "following" && userId
         ? { author: { followers: { some: { followerId: userId } } } }
         : topic
           ? { tags: { some: { Topic: { slug: topic } } } }
@@ -75,8 +88,8 @@ export default async function FeedPage({
         include: { Topic: true },
       },
     },
-    orderBy: sort === "recent" || sort === "following" 
-      ? [{ publishedAt: "desc" }, { id: "desc" }] 
+    orderBy: sort === "recent" || sort === "following"
+      ? [{ publishedAt: "desc" }, { id: "desc" }]
       : [{ viewCount: "desc" }, { id: "desc" }],
     take: 10,
   });
@@ -85,38 +98,40 @@ export default async function FeedPage({
 
   return (
     <div className="max-w-4xl mx-auto">
-      {/* Continue Reading Shelf */}
-      {!topic && <ContinueReading posts={continueReadingPosts} />}
+      {/* Continue Reading Shelf — auth only */}
+      {userId && !topic && <ContinueReading posts={continueReadingPosts} />}
 
       {/* Feed Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
         <div>
           <h1 className="text-3xl font-bold mb-2" style={{ fontFamily: "var(--font-serif)" }}>
-            {topic ? `Topic: ${topic}` : sort === "following" ? "Following" : "Your Feed"}
+            {topic ? `Topic: ${topic}` : sort === "following" ? "Following" : userId ? "Your Feed" : "Explore"}
           </h1>
           <p className="text-gray-500 text-sm">
-            {topic 
-              ? "Exploring the latest in this category." 
+            {topic
+              ? "Exploring the latest in this category."
               : sort === "following"
                 ? "The latest stories from writers you follow."
-                : "Articles curated based on your unique interests."}
+                : userId
+                  ? "Articles curated based on your unique interests."
+                  : "Discover long-form writing from curious minds worldwide."}
           </p>
         </div>
 
-        <div className="flex items-center bg-white rounded-full p-1 border border-gray-200">
+        <div className="flex items-center bg-white rounded-full p-1 border border-gray-200 shadow-sm">
           <Link
             href="/feed?sort=personalized"
             className={`px-4 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-colors ${
-              sort !== "recent" && sort !== "following" ? "bg-gray-900 text-white shadow-sm" : "text-gray-600 hover:bg-gray-50"
+              sort !== "recent" && sort !== "following" ? "bg-gray-900 text-white shadow-sm" : "text-gray-600 hover:bg-gray-100"
             }`}
           >
             <Sparkles className="w-3.5 h-3.5" />
             For You
           </Link>
           <Link
-            href="/feed?sort=following"
+            href={userId ? "/feed?sort=following" : "/sign-in"}
             className={`px-4 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-colors ${
-              sort === "following" ? "bg-gray-900 text-white shadow-sm" : "text-gray-600 hover:bg-gray-50"
+              sort === "following" ? "bg-gray-900 text-white shadow-sm" : "text-gray-600 hover:bg-gray-100"
             }`}
           >
             <Users className="w-3.5 h-3.5" />
@@ -125,7 +140,7 @@ export default async function FeedPage({
           <Link
             href="/feed?sort=recent"
             className={`px-4 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-colors ${
-              sort === "recent" ? "bg-gray-900 text-white shadow-sm" : "text-gray-600 hover:bg-gray-50"
+              sort === "recent" ? "bg-gray-900 text-white shadow-sm" : "text-gray-600 hover:bg-gray-100"
             }`}
           >
             <Clock className="w-3.5 h-3.5" />
@@ -134,21 +149,18 @@ export default async function FeedPage({
         </div>
       </div>
 
-      {/* Recommended Topics */}
+      {/* Topic Pills */}
       <div className="flex items-center gap-3 mb-10 overflow-x-auto pb-2 scrollbar-none">
         <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider shrink-0">Topics:</span>
-        <Link 
-          href="/feed" 
+        <Link
+          href="/feed"
           className={`tag px-3 py-1.5 text-xs ${!topic && sort !== "following" ? "bg-gray-900 text-white border-transparent" : ""}`}
         >
           All
         </Link>
-        {Array.from(
-          new Map(
-            user.topicAffinities.map((a) => [a.Topic.id, a])
-          ).values()
+        {userTopicAffinities.length > 0 && Array.from(
+          new Map(userTopicAffinities.map((a) => [a.Topic.id, a])).values()
         ).map((affinity) => (
-
           <Link
             key={affinity.Topic.id}
             href={`/feed?topic=${affinity.Topic.slug}`}
@@ -167,12 +179,13 @@ export default async function FeedPage({
       {/* Feed Content */}
       <div>
         {posts.length > 0 ? (
-          <InfinitePostList 
-            initialPosts={posts as PostWithAuthorAndTags[]} 
+          <InfinitePostList
+            initialPosts={posts as PostWithAuthorAndTags[]}
             initialCursor={initialCursor}
             topic={topic}
             sort={sort}
             userTopics={userTopics}
+            isAuthenticated={!!userId}
           />
         ) : (
           <div className="text-center py-20 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
@@ -183,9 +196,16 @@ export default async function FeedPage({
             <p className="text-gray-500 max-w-sm mx-auto mb-6">
               Looks like there aren&apos;t any articles in this category yet. Why not be the first to share one?
             </p>
-            <Link href="/post/new" className="btn btn-primary publish-btn">
-              Write the first story
-            </Link>
+            {userId ? (
+              <Link href="/post/new" className="btn btn-primary publish-btn">
+                Write the first story
+              </Link>
+            ) : (
+              <Link href="/sign-up" className="btn btn-primary publish-btn gap-2">
+                <LogIn className="w-4 h-4" />
+                Join to write the first story
+              </Link>
+            )}
           </div>
         )}
       </div>

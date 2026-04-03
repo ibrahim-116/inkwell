@@ -192,7 +192,25 @@ export default function HomePage() {
               <PenLine className="w-5 h-5" />
               Start writing for free
             </Link>
-            <Link href="/feed" className="btn btn-outline btn-lg transform hover:scale-105 transition-transform bg-white/50 backdrop-blur-sm">
+            <Link
+              href="/feed"
+              className="btn btn-lg transform hover:scale-105 transition-all"
+              style={{
+                background: "transparent",
+                border: "2px solid var(--color-ink)",
+                color: "var(--color-ink)",
+                fontFamily: "var(--font-sans)",
+                fontWeight: 600,
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLAnchorElement).style.background = "var(--color-ink)";
+                (e.currentTarget as HTMLAnchorElement).style.color = "var(--color-vellum)";
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLAnchorElement).style.background = "transparent";
+                (e.currentTarget as HTMLAnchorElement).style.color = "var(--color-ink)";
+              }}
+            >
               <BookOpen className="w-5 h-5" />
               Explore the feed
             </Link>

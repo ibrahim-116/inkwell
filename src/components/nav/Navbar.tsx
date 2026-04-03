@@ -17,7 +17,7 @@ interface NavbarProps {
     email?: string | null;
     image?: string | null;
     username?: string | null;
-  };
+  } | null;
 }
 
 export default function Navbar({ user }: NavbarProps) {
@@ -66,118 +66,132 @@ export default function Navbar({ user }: NavbarProps) {
 
         {/* Right: Actions */}
         <nav className="flex items-center gap-2 sm:gap-4">
-          <Link
-            href="/post/new"
-            className={cn(
-              "btn btn-ghost btn-sm gap-2",
-              pathname === "/post/new" && "bg-white shadow-sm"
-            )}
-          >
-            <PenLine className="w-4 h-4" />
-            <span className="hidden sm:inline">Write</span>
-          </Link>
-
-          <NotificationPanel />
-
-          <div className="divider-v w-px h-6 mx-1 bg-gray-200 hidden sm:block" />
-
-          {/* User Profile Dropdown */}
-          <div className="relative" ref={dropdownRef}>
-            <button
-              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className="flex items-center gap-2 p-1 rounded-full hover:bg-gray-100 transition-colors"
-            >
-              {user.image ? (
-                <div className="relative w-8 h-8 rounded-full overflow-hidden border border-gray-200">
-                  <Image
-                    src={user.image}
-                    alt={user.name ?? "User"}
-                    fill
-                    className="object-cover"
-                  />
-                </div>
-              ) : (
-                <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center border border-orange-200 text-orange-700 font-bold text-xs">
-                  {user.name?.[0].toUpperCase() ?? "U"}
-                </div>
-              )}
-            </button>
-
-            {isDropdownOpen && (
-              <div
-                className="absolute right-0 mt-2 w-56 rounded-lg border bg-white shadow-xl py-2 overflow-hidden animate-in fade-in zoom-in duration-200"
-                style={{ borderColor: "var(--color-border)", zIndex: 100 }}
+          {user ? (
+            <>
+              <Link
+                href="/post/new"
+                className={cn(
+                  "btn btn-ghost btn-sm gap-2",
+                  pathname === "/post/new" && "bg-white shadow-sm"
+                )}
               >
-                <div className="px-4 py-3 border-b mb-1" style={{ borderColor: "var(--color-border)" }}>
-                  <p className="text-sm font-semibold truncate text-gray-900">{user.name}</p>
-                  <p className="text-xs text-gray-500 truncate">@{user.username || "user"}</p>
-                </div>
+                <PenLine className="w-4 h-4" />
+                <span className="hidden sm:inline">Write</span>
+              </Link>
 
-                <Link
-                  href={`/profile/${user.username}`}
-                  className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900"
-                  onClick={() => setIsDropdownOpen(false)}
-                >
-                  <UserIcon className="w-4 h-4" />
-                  Your Profile
-                </Link>
-                <Link
-                  href="/bookmarks"
-                  className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900"
-                  onClick={() => setIsDropdownOpen(false)}
-                >
-                  <Bookmark className="w-4 h-4" />
-                  Saved Posts
-                </Link>
-                <Link
-                  href={`/profile/${user.username}?tab=analytics`}
-                  className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900"
-                  onClick={() => setIsDropdownOpen(false)}
-                >
-                  <BarChart3 className="w-4 h-4 text-[#D4A373]" />
-                  Analytics
-                </Link>
-                <Link
-                  href="/drafts"
-                  className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900"
-                  onClick={() => setIsDropdownOpen(false)}
-                >
-                  <PenLine className="w-4 h-4 text-amber-600" />
-                  Your Drafts
-                </Link>
-                <Link
-                  href="/settings"
-                  className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900"
-                  onClick={() => setIsDropdownOpen(false)}
-                >
-                  <Settings className="w-4 h-4" />
-                  Settings
-                </Link>
+              <NotificationPanel />
 
-                <div className="border-t my-1" style={{ borderColor: "var(--color-border)" }} />
-                
+              <div className="divider-v w-px h-6 mx-1 bg-gray-200 hidden sm:block" />
+
+              {/* User Profile Dropdown */}
+              <div className="relative" ref={dropdownRef}>
                 <button
-                  onClick={() => signOut({ callbackUrl: "/" })}
-                  className="flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 w-full text-left"
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                  className="flex items-center gap-2 p-1 rounded-full hover:bg-gray-100 transition-colors"
                 >
-                  <LogOut className="w-4 h-4" />
-                  Sign out
+                  {user.image ? (
+                    <div className="relative w-8 h-8 rounded-full overflow-hidden border border-gray-200">
+                      <Image
+                        src={user.image}
+                        alt={user.name ?? "User"}
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center border border-orange-200 text-orange-700 font-bold text-xs">
+                      {user.name?.[0]?.toUpperCase() ?? "U"}
+                    </div>
+                  )}
                 </button>
-              </div>
-            )}
-          </div>
 
-          <button 
-            className="md:hidden btn btn-ghost btn-icon p-2"
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          >
-            <Menu className="w-6 h-6" />
-          </button>
+                {isDropdownOpen && (
+                  <div
+                    className="absolute right-0 mt-2 w-56 rounded-lg border bg-white shadow-xl py-2 overflow-hidden animate-in fade-in zoom-in duration-200"
+                    style={{ borderColor: "var(--color-border)", zIndex: 100 }}
+                  >
+                    <div className="px-4 py-3 border-b mb-1" style={{ borderColor: "var(--color-border)" }}>
+                      <p className="text-sm font-semibold truncate text-gray-900">{user.name}</p>
+                      <p className="text-xs text-gray-500 truncate">@{user.username || "user"}</p>
+                    </div>
+
+                    <Link
+                      href={`/profile/${user.username}`}
+                      className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                      onClick={() => setIsDropdownOpen(false)}
+                    >
+                      <UserIcon className="w-4 h-4" />
+                      Your Profile
+                    </Link>
+                    <Link
+                      href="/bookmarks"
+                      className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                      onClick={() => setIsDropdownOpen(false)}
+                    >
+                      <Bookmark className="w-4 h-4" />
+                      Saved Posts
+                    </Link>
+                    <Link
+                      href={`/profile/${user.username}?tab=analytics`}
+                      className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                      onClick={() => setIsDropdownOpen(false)}
+                    >
+                      <BarChart3 className="w-4 h-4 text-[#D4A373]" />
+                      Analytics
+                    </Link>
+                    <Link
+                      href="/drafts"
+                      className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                      onClick={() => setIsDropdownOpen(false)}
+                    >
+                      <PenLine className="w-4 h-4 text-amber-600" />
+                      Your Drafts
+                    </Link>
+                    <Link
+                      href="/settings"
+                      className="flex items-center gap-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                      onClick={() => setIsDropdownOpen(false)}
+                    >
+                      <Settings className="w-4 h-4" />
+                      Settings
+                    </Link>
+
+                    <div className="border-t my-1" style={{ borderColor: "var(--color-border)" }} />
+
+                    <button
+                      onClick={() => signOut({ callbackUrl: "/" })}
+                      className="flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 w-full text-left"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Sign out
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <button
+                className="md:hidden btn btn-ghost btn-icon p-2"
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              >
+                <Menu className="w-6 h-6" />
+              </button>
+            </>
+          ) : (
+            /* Guest CTAs */
+            <div className="flex items-center gap-3">
+              <Link href="/sign-in" className="btn btn-ghost btn-sm" style={{ fontSize: 15 }}>
+                Sign in
+              </Link>
+              <Link href="/sign-up" className="btn btn-primary btn-sm">
+                Start writing
+              </Link>
+            </div>
+          )}
         </nav>
       </div>
 
-      {/* Mobile Menu */}
-      {isMobileMenuOpen && (
+      {/* Mobile Menu — auth users only */}
+      {user && isMobileMenuOpen && (
         <div className="md:hidden absolute top-16 left-0 w-full bg-white border-b shadow-lg animate-in slide-in-from-top-2 duration-200" style={{ borderColor: "var(--color-border)" }}>
           <div className="px-4 pt-2 pb-4 space-y-1">
             <div className="mb-4">
@@ -207,7 +221,7 @@ export default function Navbar({ user }: NavbarProps) {
               <Bookmark className="w-5 h-5" />
               Bookmarks
             </Link>
-             <Link
+            <Link
               href={`/profile/${user.username}?tab=analytics`}
               onClick={() => setIsMobileMenuOpen(false)}
               className="flex items-center gap-3 px-3 py-2 rounded-md text-base font-medium text-gray-900 hover:bg-gray-100"
@@ -224,14 +238,14 @@ export default function Navbar({ user }: NavbarProps) {
               Settings
             </Link>
             <button
-               onClick={() => {
-                 setIsMobileMenuOpen(false);
-                 signOut({ callbackUrl: "/" });
-               }}
-               className="flex w-full items-center gap-3 px-3 py-2 rounded-md text-base font-medium text-red-600 hover:bg-red-50"
+              onClick={() => {
+                setIsMobileMenuOpen(false);
+                signOut({ callbackUrl: "/" });
+              }}
+              className="flex w-full items-center gap-3 px-3 py-2 rounded-md text-base font-medium text-red-600 hover:bg-red-50"
             >
-               <LogOut className="w-5 h-5" />
-               Sign Out
+              <LogOut className="w-5 h-5" />
+              Sign Out
             </button>
           </div>
         </div>
