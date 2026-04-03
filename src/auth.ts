@@ -6,20 +6,30 @@ import Google from "next-auth/providers/google";
 import argon2 from "argon2";
 
 /**
- * Full NextAuth configuration — runs only in Node.js runtime.
- * Uses PrismaAdapter with database sessions so Google OAuth
- * account linking works correctly without JWT/adapter conflicts.
+ * Full NextAuth v5 configuration — Node.js runtime only.
+ *
+ * Strategy: JWT (cookie-based, no Session table needed).
+ * PrismaAdapter is kept for OAuth account linking (Account table)
+ * and user creation, but does NOT manage session records.
+ *
+ * The username field is @unique and required in our schema.
+ * Google does not provide a username, so we generate one in
+ * the createUser event before the record is committed.
  */
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
   debug: process.env.NODE_ENV === "development",
 
-  // ── Adapter & session strategy ────────────────────────────────────
-  // PrismaAdapter requires "database" strategy. JWT + PrismaAdapter
-  // is the root cause of OAuthAccountNotLinked errors.
+  // ── Adapter ───────────────────────────────────────────────────────
+  // Used for OAuth account linking (Account table) and user creation.
+  // Credentials provider bypasses adapter entirely.
   adapter: PrismaAdapter(prisma) as any,
+
+  // ── Session — JWT, not database ───────────────────────────────────
+  // Database strategy requires Session.user (lowercase) relation, but
+  // our schema uses Session.User (capitalized). JWT avoids that lookup.
   session: {
-    strategy: "database",
+    strategy: "jwt",
     maxAge: 60 * 24 * 60 * 60, // 60 days
     updateAge: 24 * 60 * 60,   // 24 hours
   },
@@ -35,6 +45,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     Google({
       clientId: process.env.AUTH_GOOGLE_ID!,
       clientSecret: process.env.AUTH_GOOGLE_SECRET!,
+      // Allow linking Google to an existing email/password account
       allowDangerousEmailAccountLinking: true,
     }),
 
@@ -63,6 +74,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           username: user.username,
           role: user.role,
           onboardingCompleted: user.onboardingCompleted,
+          emailVerified: user.emailVerified,
         };
       },
     }),
@@ -71,60 +83,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   // ── Callbacks ─────────────────────────────────────────────────────
   callbacks: {
     /**
-     * signIn callback: called after OAuth provider returns.
-     * For Google users, ensure a username is set since our schema
-     * requires it but Google doesn't provide one.
+     * jwt — runs when token is created/updated.
+     * On first sign-in (user object present), hydrate token with
+     * app-specific fields from the DB.
      */
-    async signIn({ user, account }) {
-      if (account?.provider === "google" && user.email) {
-        try {
-          const existingUser = await prisma.user.findUnique({
-            where: { email: user.email },
-          });
-
-          if (!existingUser) {
-            // New Google user — generate a unique username from their name/email
-            const base = (user.name ?? user.email.split("@")[0])
-              .toLowerCase()
-              .replace(/[^a-z0-9]/g, "")
-              .slice(0, 20);
-
-            let username = base;
-            let attempt = 0;
-            while (true) {
-              const taken = await prisma.user.findUnique({ where: { username } });
-              if (!taken) break;
-              attempt++;
-              username = `${base}${attempt}`;
-            }
-
-            // The adapter will create the User record — patch in the username
-            // by updating immediately after creation using the upsert pattern.
-            // We store the intended username on the user object so the adapter
-            // picks it up if it reads custom fields (varies by adapter version).
-            (user as any).username = username;
-          } else {
-            // Returning Google user — carry their username forward
-            (user as any).username = existingUser.username;
-            (user as any).onboardingCompleted = existingUser.onboardingCompleted;
-          }
-        } catch (err) {
-          console.error("[auth] signIn Google callback error:", err);
-          return false;
-        }
-      }
-      return true;
-    },
-
-    /**
-     * session callback: enrich the session object with
-     * app-specific fields from the DB user record.
-     */
-    async session({ session, user }) {
-      if (session.user && user) {
-        // user here is the full DB user record (database session strategy)
+    async jwt({ token, user, trigger, session }) {
+      if (user) {
+        // First sign-in: load full user record to get custom fields
         const dbUser = await prisma.user.findUnique({
-          where: { id: user.id },
+          where: { id: user.id! },
           select: {
             username: true,
             role: true,
@@ -134,12 +101,35 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           },
         });
 
-        session.user.id = user.id;
-        session.user.username = dbUser?.username ?? null;
-        session.user.role = dbUser?.role ?? "USER";
-        session.user.onboardingCompleted = dbUser?.onboardingCompleted ?? false;
-        session.user.emailVerified = dbUser?.emailVerified ?? null;
-        if (dbUser?.avatarUrl) session.user.image = dbUser.avatarUrl;
+        token.id = user.id!;
+        token.username = dbUser?.username ?? null;
+        token.role = dbUser?.role ?? "USER";
+        token.onboardingCompleted = dbUser?.onboardingCompleted ?? false;
+        token.emailVerified = dbUser?.emailVerified ?? null;
+        if (dbUser?.avatarUrl) token.picture = dbUser.avatarUrl;
+      }
+
+      // Session update (e.g. after onboarding completion)
+      if (trigger === "update" && session) {
+        token.username = session.username ?? token.username;
+        token.onboardingCompleted = session.onboardingCompleted ?? token.onboardingCompleted;
+        token.emailVerified = session.emailVerified ?? token.emailVerified;
+      }
+
+      return token;
+    },
+
+    /**
+     * session — maps JWT token fields onto the session object
+     * that server components receive via auth().
+     */
+    async session({ session, token }) {
+      if (token && session.user) {
+        session.user.id = token.id as string;
+        session.user.username = token.username as string | null;
+        session.user.role = token.role as string;
+        session.user.onboardingCompleted = token.onboardingCompleted as boolean;
+        session.user.emailVerified = token.emailVerified as Date | null;
       }
       return session;
     },
@@ -148,35 +138,39 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   // ── Events ────────────────────────────────────────────────────────
   events: {
     /**
-     * After createUser: patch in the username that we pre-computed
-     * in the signIn callback. The PrismaAdapter creates the User
-     * but doesn't know about our custom username field.
+     * createUser fires after PrismaAdapter inserts the User row.
+     * At that point the user has no username (Google doesn't provide one
+     * and our schema requires @unique username). We generate one here.
      */
     async createUser({ user }) {
-      if (!(user as any).username) {
-        // Fallback: derive username from email
-        const base = (user.email ?? "user")
-          .split("@")[0]
-          .toLowerCase()
-          .replace(/[^a-z0-9]/g, "")
-          .slice(0, 20);
+      if (!user.email) return;
 
-        let username = base;
-        let attempt = 0;
-        while (true) {
-          const taken = await prisma.user.findUnique({ where: { username } });
-          if (!taken) break;
-          attempt++;
-          username = `${base}${attempt}`;
-        }
+      // Check if username already patched (e.g. credentials path)
+      const existing = await prisma.user.findUnique({
+        where: { id: user.id! },
+        select: { username: true },
+      });
+      if (existing?.username) return;
 
-        (user as any).username = username;
+      // Generate unique username from name or email prefix
+      const base = (user.name ?? user.email.split("@")[0])
+        .toLowerCase()
+        .replace(/[^a-z0-9_]/g, "")
+        .slice(0, 20) || "user";
+
+      let username = base;
+      let attempt = 0;
+      while (true) {
+        const taken = await prisma.user.findUnique({ where: { username } });
+        if (!taken) break;
+        attempt++;
+        username = `${base}${attempt}`;
       }
 
       await prisma.user.update({
         where: { id: user.id! },
         data: {
-          username: (user as any).username,
+          username,
           avatarUrl: user.image ?? null,
         },
       });
