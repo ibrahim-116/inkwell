@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
+import { PostWithAuthorAndTags } from "@/lib/types";
 
 export async function getPosts({
   cursor,
