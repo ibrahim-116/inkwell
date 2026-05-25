@@ -95,16 +95,6 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 ---
 
-## 📦 Deployment (Vercel)
-
-This application is ready to be deployed on Vercel:
-
-1. Push your code to your GitHub repository.
-2. Import the project into Vercel.
-3. Configure the **Environment Variables** in the Vercel dashboard.
-4. Set the Build Command to `bun run build`.
-5. Deploy.
-
 ---
 
 ## 📄 License
